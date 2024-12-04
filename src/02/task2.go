@@ -11,10 +11,37 @@ func isSafeStep(a int, b int) bool {
 	return diff >= 1 && diff <= 3
 }
 
-func checkReportInc(report []int, isIncreasing bool) bool {
-	for i := 0; i < len(report)-1; i++ {
-		tokenA := report[i]
-		tokenB := report[i+1]
+func removeIndexFromSlice(slice []int, idx int) []int {
+	out := make([]int, len(slice))
+	copy(out, slice)
+
+	newSlice := append(out[:idx], out[idx+1:]...)
+
+	return newSlice
+}
+
+func checkReportVariations(report []int, isIncreasing bool) bool {
+	for i := -1; i < len(report); i++ {
+		if checkSingleReport(report, isIncreasing, i) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkSingleReport(report []int, isIncreasing bool, leaveOutIndex int) bool {
+	var newSlice []int
+
+	if leaveOutIndex > -1 {
+		newSlice = removeIndexFromSlice(report, leaveOutIndex)
+	} else {
+		newSlice = report
+	}
+
+	for i := 0; i < len(newSlice)-1; i++ {
+		tokenA := newSlice[i]
+		tokenB := newSlice[i+1]
 
 		var isNotMonotonous bool
 
@@ -40,7 +67,7 @@ func main() {
 	for _, line := range lines {
 		tokens := common.TokenizeLineAsInts(line)
 
-		isSafe := checkReportInc(tokens, true) || checkReportInc(tokens, false)
+		isSafe := checkReportVariations(tokens, true) || checkReportVariations(tokens, false)
 
 		if isSafe {
 			numSafe += 1
