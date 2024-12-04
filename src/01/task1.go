@@ -22,7 +22,7 @@ func countOccurrences(numbers []int) map[int]int {
 
 func partTwo() {
 	// open the file
-	file, err := os.Open("./01/input.txt")
+	file, err := os.Open("./src/01/input.txt")
 
 	if err != nil {
 		fmt.Println("error opening file", err)
