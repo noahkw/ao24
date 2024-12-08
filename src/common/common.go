@@ -38,6 +38,13 @@ func TokenizeLineAsInts(line string) []int {
 	return out
 }
 
+func Reverse(s string) (result string) {
+	for _, v := range s {
+		result = string(v) + result
+	}
+	return
+}
+
 func ReadLinesFromFile(filePath string) []string {
 	// open the file
 	file, err := os.Open(filePath)
