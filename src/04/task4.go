@@ -32,27 +32,39 @@ type Position struct {
 
 func searchAtPosition(toSearch string, lines []string) int {
 	directions := []struct {
-		dx int
-		dy int
+		dx         int
+		dy         int
+		startingdx int
+		startingdy int
 	}{
-		{1, 0},   // right
-		{-1, 0},  // left
-		{0, -1},  // up
-		{0, 1},   // down
-		{1, -1},  // up-right
-		{-1, -1}, // up-left
-		{1, 1},   // down-right
-		{-1, 1},  // down-left
+		{1, -1, -1, 1}, // up-right
+		{-1, -1, 1, 1}, // up-left
+		{1, 1, -1, -1}, // down-right
+		{-1, 1, 1, -1}, // down-left
 	}
 
 	numFound := 0
 	for x := 0; x < len(lines[0]); x++ {
 		for y := 0; y < len(lines); y++ {
 			pos := Position{x: x, y: y}
+			currChar, err := getCharAt(pos, lines)
+			if err != nil {
+				panic(err)
+			}
+
+			if rune(currChar) != 'A' {
+				continue
+			}
+
+			dirsFound := 0
 			for _, dir := range directions {
-				if searchInDirection(toSearch, pos, dir.dx, dir.dy, lines) {
-					numFound++
+				startingPos := Position{x: pos.x + dir.startingdx, y: pos.y + dir.startingdy}
+				if searchInDirection(toSearch, startingPos, dir.dx, dir.dy, lines) {
+					dirsFound++
 				}
+			}
+			if dirsFound == 2 {
+				numFound += 1
 			}
 		}
 	}
@@ -60,7 +72,7 @@ func searchAtPosition(toSearch string, lines []string) int {
 }
 
 func main() {
-	searchString := "XMAS"
+	searchString := "MAS"
 
 	//lines := common.ReadLinesFromFile("src/04/testinput.txt")
 	lines := common.ReadLinesFromFile("src/04/input.txt")
