@@ -44,9 +44,13 @@ func NewLexer(input string) *Lexer {
 	}
 }
 
-func parseExpression(lexer *Lexer) (Expression, error) {
+func parseExpression(lexer *Lexer, backtrackToken *Token) (Expression, error) {
 	var name string
 	args := make([]string, 2)
+
+	if backtrackToken != nil {
+		name += backtrackToken.tokenValue
+	}
 
 	for {
 		token, err := lexer.NextToken()
@@ -76,6 +80,10 @@ func parseExpression(lexer *Lexer) (Expression, error) {
 
 		if token.tokenType == Comma {
 			break
+		}
+
+		if token.tokenType == FuncName {
+			return parseExpression(lexer, &token)
 		}
 
 		if token.tokenType != Argument {
@@ -156,7 +164,7 @@ func testLexer(lexer *Lexer) {
 }
 
 func evalExpression(expression Expression) (int, bool) {
-	if strings.HasSuffix(expression.name, "ul") {
+	if strings.HasSuffix(expression.name, "mul") {
 		arg0, err := strconv.Atoi(expression.args[0])
 		if err != nil {
 			panic(err)
@@ -204,7 +212,7 @@ func main() {
 
 	expressions := make([]Expression, 10)
 	for {
-		expr, err := parseExpression(lexer2)
+		expr, err := parseExpression(lexer2, nil)
 
 		if err != nil {
 			panic(err)
