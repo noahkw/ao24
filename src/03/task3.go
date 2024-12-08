@@ -20,6 +20,15 @@ const (
 	IllegalChar           = "IllegalChar"
 )
 
+type ExpressionType string
+
+const (
+	Mul     ExpressionType = "Mul"
+	Do                     = "Do"
+	Dont                   = "Don't"
+	Invalid                = "Invalid"
+)
+
 type Token struct {
 	tokenType  TokenType
 	tokenValue string
@@ -47,6 +56,8 @@ func NewLexer(input string) *Lexer {
 func parseExpression(lexer *Lexer, backtrackToken *Token) (Expression, error) {
 	var name string
 	args := make([]string, 2)
+
+	hasArgs := true
 
 	if backtrackToken != nil {
 		name += backtrackToken.tokenValue
@@ -78,6 +89,11 @@ func parseExpression(lexer *Lexer, backtrackToken *Token) (Expression, error) {
 			panic(err)
 		}
 
+		if token.tokenType == RightParen {
+			hasArgs = false
+			break
+		}
+
 		if token.tokenType == Comma {
 			break
 		}
@@ -94,7 +110,7 @@ func parseExpression(lexer *Lexer, backtrackToken *Token) (Expression, error) {
 		args[0] += token.tokenValue
 	}
 
-	for {
+	for hasArgs {
 		token, err := lexer.NextToken()
 
 		if err != nil {
@@ -137,7 +153,7 @@ func (lexer *Lexer) NextToken() (Token, error) {
 		return Token{tokenType: Comma, tokenValue: ","}, nil
 	default:
 		lexer.current++
-		if unicode.IsLetter(rune(currentChar)) {
+		if unicode.IsLetter(rune(currentChar)) || rune(currentChar) == '\'' {
 			return Token{tokenType: FuncName, tokenValue: string(currentChar)}, nil
 		} else if unicode.IsDigit(rune(currentChar)) {
 			return Token{tokenType: Argument, tokenValue: string(currentChar)}, nil
@@ -163,7 +179,7 @@ func testLexer(lexer *Lexer) {
 	}
 }
 
-func evalExpression(expression Expression) (int, bool) {
+func evalExpression(expression Expression) (int, bool, ExpressionType) {
 	if strings.HasSuffix(expression.name, "mul") {
 		arg0, err := strconv.Atoi(expression.args[0])
 		if err != nil {
@@ -175,22 +191,33 @@ func evalExpression(expression Expression) (int, bool) {
 		}
 
 		result := arg0 * arg1
-		return result, true
+		return result, true, Mul
+	} else if strings.HasSuffix(expression.name, "do") {
+		return 0, true, Do
+	} else if strings.HasSuffix(expression.name, "don't") {
+		return 0, true, Dont
 	}
 
 	fmt.Printf("could not eval expr '%s'\n", expression.name)
-	return 0, false
+	return 0, false, Invalid
 }
 
 func evalMuls(expressions []Expression) (int, int) {
 	sum := 0
 	numberExpressions := 0
-	for _, expr := range expressions {
-		result, isValid := evalExpression(expr)
 
-		if isValid {
+	isEnabled := true
+
+	for _, expr := range expressions {
+		result, doAdd, expressionType := evalExpression(expr)
+
+		if expressionType == Mul && doAdd && isEnabled {
 			sum += result
 			numberExpressions += 1
+		} else if expressionType == Do {
+			isEnabled = true
+		} else if expressionType == Dont {
+			isEnabled = false
 		}
 	}
 
