@@ -51,7 +51,7 @@ func (update Update) getMiddlePage() int {
 	return update.pageNums[len(update.pageNums)/2]
 }
 
-func (update Update) checkUpdateAtIndex(idx int, pageOrders *[]PageOrder) bool {
+func (update Update) checkUpdateAtIndex(idx int, pageOrders *[]PageOrder) (bool, *int, *PageOrder) {
 	pageToCheck := update.pageNums[idx]
 
 	for _, pageOrder := range *pageOrders {
@@ -66,12 +66,51 @@ func (update Update) checkUpdateAtIndex(idx int, pageOrders *[]PageOrder) bool {
 
 			if curPage == pageOrder.before {
 				fmt.Printf("violated PageOrder [%d, %d]", pageOrder.before, pageOrder.after)
-				return false
+				return false, &i, &pageOrder
 			}
 		}
 	}
 
-	return true
+	return true, nil, nil
+}
+
+func (update Update) fixBadUpdate(pageOrders *[]PageOrder) Update {
+	fixedUpdate := update
+
+	swapIndices := make([]int, 0)
+	for idx := 0; idx < len(fixedUpdate.pageNums); idx++ {
+		goodIndex, indexToSwap, pageOrder := fixedUpdate.checkUpdateAtIndex(idx, pageOrders)
+		_ = pageOrder
+		if !goodIndex {
+			swapIndices = append(swapIndices, idx)
+			page := fixedUpdate.pageNums[idx]
+			pageToSwap := fixedUpdate.pageNums[*indexToSwap]
+			fixedUpdate.pageNums[idx] = pageToSwap
+			fixedUpdate.pageNums[*indexToSwap] = page
+		}
+	}
+
+	return fixedUpdate
+}
+
+func (update Update) fixUntilGood(pageOrders *[]PageOrder) Update {
+	for {
+		update.fixBadUpdate(pageOrders)
+
+		allIndicesGood := true
+		for idx := 0; idx < len(update.pageNums); idx++ {
+			goodIndex, _, _ := update.checkUpdateAtIndex(idx, pageOrders)
+
+			if !goodIndex {
+				allIndicesGood = false
+				break
+			}
+		}
+
+		if allIndicesGood {
+			return update
+		}
+	}
 }
 
 func parsePageOrder(in string) PageOrder {
@@ -128,19 +167,26 @@ func main() {
 	fmt.Println(updates)
 
 	middlePageSum := 0
+	badUpdates := make([]Update, 0)
 
 	for _, update := range updates {
-		invalid := false
 		for i := 0; i < len(update.pageNums); i++ {
-			if !update.checkUpdateAtIndex(i, &pageOrders) {
-				invalid = true
+			isGood, _, _ := update.checkUpdateAtIndex(i, &pageOrders)
+			if !isGood {
+				badUpdates = append(badUpdates, update)
 				break
 			}
 		}
+	}
 
-		if !invalid {
-			middlePageSum += update.getMiddlePage()
-		}
+	fmt.Println("bad updates\n\n")
+	fmt.Println(badUpdates)
+
+	for _, badUpdate := range badUpdates {
+		fixedUpdate := badUpdate.fixUntilGood(&pageOrders)
+		fmt.Printf("\nbad update: %s\nfixed update: %s\n", badUpdate, fixedUpdate)
+
+		middlePageSum += fixedUpdate.getMiddlePage()
 	}
 
 	fmt.Printf("\n---\nmiddle page sum: %d", middlePageSum)
