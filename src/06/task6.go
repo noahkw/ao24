@@ -3,6 +3,7 @@ package main
 import (
 	"common"
 	"fmt"
+	"time"
 )
 
 type Direction string
@@ -16,9 +17,31 @@ const (
 
 const OBSTACLE = '#'
 const WALKABLE = '.'
-const VISITED = 'X'
+const VISITED_UP = 'X'
+const VISITED_DOWN = 'Y'
+const VISITED_RIGHT = 'Z'
+const VISITED_LEFT = 'L'
 const OUTSIDE = '?'
 const GUARD = '^'
+
+func isVisited(tile rune) bool {
+	return tile == VISITED_RIGHT || tile == VISITED_LEFT || tile == VISITED_DOWN || tile == VISITED_UP
+}
+
+func dirToVisited(dir Direction) rune {
+	switch dir {
+	case Up:
+		return VISITED_UP
+	case Down:
+		return VISITED_DOWN
+	case Right:
+		return VISITED_RIGHT
+	case Left:
+		return VISITED_LEFT
+	default:
+		panic("unknown direction" + dir)
+	}
+}
 
 func nextDir(dir Direction) Direction {
 	switch dir {
@@ -68,32 +91,61 @@ func moveInDir(pos Position, dir Direction) Position {
 	}
 }
 
+// returns whether the sim loops
+func simulate(lines []string, obstaclePos Position) bool {
+	currentTile := getTileAt(&lines, obstaclePos)
+	if currentTile != WALKABLE {
+		return false
+	}
+
+	linesCopy := make([]string, len(lines))
+	copy(linesCopy, lines)
+
+	setTileAt(&linesCopy, obstaclePos, OBSTACLE)
+	currentPosition, currentDir := getGuardPosition(&linesCopy)
+	setTileAt(&linesCopy, currentPosition, dirToVisited(currentDir))
+
+	for {
+		newPos := moveInDir(currentPosition, currentDir)
+		newTile := getTileAt(&linesCopy, newPos)
+
+		if newTile == WALKABLE || isVisited(newTile) {
+			currentPosition = newPos
+			setTileAt(&linesCopy, currentPosition, dirToVisited(currentDir))
+		} else if newTile == OBSTACLE {
+			currentDir = nextDir(currentDir)
+		} else if newTile == OUTSIDE {
+			return false
+		}
+
+		if newTile == dirToVisited(currentDir) {
+			return true
+		}
+	}
+}
+
 func main() {
+	start := time.Now()
 	lines := common.ReadLinesFromFile("src/06/input.txt")
 
 	fmt.Println(string(getTileAt(&lines, Position{x: -1, y: 0})))
 
-	var currentTile rune
+	numLoopingSims := 0
 
-	currentPosition, currentDir := getGuardPosition(&lines)
-	fmt.Printf("found guard at %d with direction %s", currentPosition, currentDir)
-	setTileAt(&lines, currentPosition, VISITED)
+	for i := 0; i < len(lines)-1; i++ {
+		for k := 0; k < len((lines)[0])-1; k++ {
+			obstaclePos := Position{x: i, y: k}
 
-	for currentTile != OUTSIDE {
-		newPos := moveInDir(currentPosition, currentDir)
-		newTile := getTileAt(&lines, newPos)
+			isLooping := simulate(lines, obstaclePos)
 
-		if newTile == WALKABLE || newTile == VISITED {
-			currentPosition = newPos
-			setTileAt(&lines, currentPosition, VISITED)
-		} else if newTile == OBSTACLE {
-			currentDir = nextDir(currentDir)
-		} else if newTile == OUTSIDE {
-			break
+			if isLooping {
+				numLoopingSims++
+			}
 		}
 	}
 
-	fmt.Printf("visited tiles: %d", countVisited(&lines))
+	fmt.Printf("looping: %d\n", numLoopingSims)
+	fmt.Printf("execution time: %v\n", time.Since(start))
 }
 
 func getGuardDir(guardChar rune) Direction {
@@ -123,16 +175,4 @@ func getGuardPosition(lines *[]string) (Position, Direction) {
 	}
 
 	panic("could not find guard")
-}
-
-func countVisited(lines *[]string) int {
-	count := 0
-	for i := 0; i < len(*lines); i++ {
-		for k := 0; k < len((*lines)[0]); k++ {
-			if getTileAt(lines, Position{x: i, y: k}) == VISITED {
-				count++
-			}
-		}
-	}
-	return count
 }
